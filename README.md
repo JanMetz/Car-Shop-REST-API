@@ -8,7 +8,7 @@ Examples of how to use it can be found in the 'tests' folder.
 
 Documentation:
 
-| Adres URI	| Post | Get |	Put |	Delete |
+| URI	| Post | Get |	Put |	Delete |
 | ----- | ----- | ------- | ------- | ------- |
 | apps/	| returns new token for appointment |	returns all appoinments |	x |	deletes future appointments |
 | vehicles/ |	returns new token for vehicle |	return all vehicles |	x |	x |
