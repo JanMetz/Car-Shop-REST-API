@@ -1,0 +1,32 @@
+# Test your FastAPI endpoints
+###
+
+GET http://127.0.0.1:8000/apps
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/mechanics
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/vehicles
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/vehicles/5d640
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/apps/e854f
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/mechanics/e854f
+Accept: application/json
+
+###

@@ -1,0 +1,55 @@
+# Test your FastAPI endpoints
+###
+
+PUT http://127.0.0.1:8000/vehicles/0e794
+Accept: application/json
+
+{
+"make": "ford",
+"model": "fiesta",
+"registration": "AB6427"
+}
+
+###
+
+PUT http://127.0.0.1:8000/vehicles/5d640
+Accept: application/json
+
+{
+"make": "chevrolet",
+"model": "corvette",
+"registration": "DEN823"
+}
+
+###
+
+PUT http://127.0.0.1:8000/apps/c6735
+Accept: application/json
+
+{
+"date": "12/12/2025",
+"vehicle_id": "0e794",
+"mechanic_id": "eb577"
+}
+
+###
+
+PUT http://127.0.0.1:8000/mechanics/eb577
+Accept: application/json
+
+{
+"name": "adam",
+"surname": "sandler"
+}
+
+###
+
+PUT http://127.0.0.1:8000/mechanics/ce255
+Accept: application/json
+
+{
+"name": "joe",
+"surname": "kowalsky"
+}
+
+###
