@@ -1,12 +1,14 @@
 ## Car-Shop-REST-API
 
-This is a simple REST API written as an excercise - it emulates a service that could be used in a car repair shop.
+# About
+
+This is a simple REST API written as an excercise - it emulates a service that could be used by a car repair shop.
 
 It has entities that represent a car mechanic, vehicle and appointment
 
 Examples of how to use it can be found in the 'tests' folder. 
 
-Documentation:
+# Documentation:
 
 | URI	| Post | Get |	Put |	Delete |
 | ----- | ----- | ------- | ------- | ------- |
@@ -18,3 +20,6 @@ Documentation:
 | mechanics/{id} |	x	| returns mechanic	| updates mechanic	| deletes mechanic | 
 | transfers/	| reschedules all appointments from one day to another |	x |	x |	x |
 
+# Dependencies
+
+It was written using pydantic, uuid and fastapi in Python 3.11
