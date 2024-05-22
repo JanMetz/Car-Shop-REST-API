@@ -1,6 +1,8 @@
 from datetime import datetime
 import uuid
 import hashlib
+from typing import Dict, Any
+
 from resources import *
 from fastapi import FastAPI
 
@@ -192,24 +194,57 @@ async def delete_mechanic(mechanic_id: str):
 def is_in_collection(entity_id: str, resource: Resource) -> str:
     if entity_id in resource.entities:
 
-        return f"got entity {entity_id}"
+        return f"get request successful"
 
-    return f"get failed! Token not found {entity_id}"
+    return f"get request failed! Token not found {entity_id}"
 
 
 def get_from_collection(entity_id: str, resource: Resource):
     if entity_id in resource.entities:
-
         return resource.entities[entity_id]
 
     return []
+
+
+def get_hash(entity) -> str:
+    serialized = repr(entity).encode('utf-8')
+
+    return hashlib.md5(serialized).hexdigest()
+
+
+def get_entity_dict(entity_id: str, resource: Resource) -> dict[str, Any]:
+    entity = get_from_collection(entity_id, resource)
+    hash_val = get_hash(entity)
+    dct = {
+        "entity_id": entity_id,
+        "hash": hash_val
+    }
+
+    dct.update(entity.to_dict())
+
+    return dct
+
+
+def get_entities_dict(resource: Resource) -> dict[str, Any]:
+    dct = dict([])
+    for entity_id, entity in resource.entities.items():
+        hash_val = get_hash(entity)
+        entity_dct = {
+            "entity_id": entity_id,
+            "hash": hash_val
+        }
+
+        entity_dct.update(entity.to_dict())
+        dct[entity_id] = entity_dct
+
+    return dct
 
 
 @app.get("/apps")
 async def get_appointments():
     return {
         "message": "getting collection successful",
-        "entity": apps.entities,
+        "entities": get_entities_dict(apps),
         "collection": "appointments"
     }
 
@@ -218,7 +253,7 @@ async def get_appointments():
 async def get_appointment(app_id: str):
     return {
         "message": is_in_collection(app_id, apps),
-        "entity": get_from_collection(app_id, apps),
+        "entity": get_entity_dict(app_id, apps),
         "collection": "appointments"
     }
 
@@ -227,7 +262,7 @@ async def get_appointment(app_id: str):
 async def get_vehicles():
     return {
         "message": "getting collection successful",
-        "entity": vehicles.entities,
+        "entities": get_entities_dict(vehicles),
         "collection": "vehicles"
     }
 
@@ -236,7 +271,7 @@ async def get_vehicles():
 async def get_vehicle(vehicle_id: str):
     return {
         "message": is_in_collection(vehicle_id, vehicles),
-        "entity": get_from_collection(vehicle_id, vehicles),
+        "entity": get_entity_dict(vehicle_id, vehicles),
         "collection": "vehicles"
     }
 
@@ -245,7 +280,7 @@ async def get_vehicle(vehicle_id: str):
 async def get_mechanics():
     return {
         "message": "getting collection successful",
-        "entity": mechanics.entities,
+        "entities": get_entities_dict(mechanics),
         "collection": "mechanics"
     }
 
@@ -254,7 +289,7 @@ async def get_mechanics():
 async def get_mechanic(mechanic_id: str):
     return {
         "message": is_in_collection(mechanic_id, mechanics),
-        "entity": get_from_collection(mechanic_id, mechanics),
+        "entity": get_entity_dict(mechanic_id, mechanics),
         "collection": "mechanics"
     }
 
