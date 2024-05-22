@@ -1,39 +1,36 @@
 from datetime import datetime
 import uuid
+import hashlib
 from resources import *
 from fastapi import FastAPI
 
 
 app = FastAPI()
 
-vehicles = dict([])
-mechanics = dict([])
-appointments = dict([])
-
-new_tokens_apps = []
-new_tokens_mechanics = []
-new_tokens_vehicles = []
+vehicles = Resource()
+mechanics = Resource()
+apps = Resource()
 
 
 # *************** POSTS ***************
 
-def get_token(new_tokens):
-    if len(new_tokens) > 0:
-        return new_tokens[0]
+def get_token(resource: Resource) -> str:
+    if len(resource.new_tokens) > 0:
+        return resource.new_tokens[0]
 
     while True:
         token = str(uuid.uuid4().hex[:5])
-        not_in_keys = token not in vehicles.keys() and token not in mechanics.keys() and token not in appointments.keys()
-        not_in_tokens = token not in new_tokens_apps and token not in new_tokens_mechanics and token not in new_tokens_vehicles
+        not_in_keys = token not in vehicles.entities.keys() and token not in mechanics.entities.keys() and token not in apps.entities.keys()
+        not_in_tokens = token not in vehicles.new_tokens and token not in mechanics.new_tokens and token not in apps.new_tokens
 
         if not_in_tokens and not_in_keys:
-            new_tokens.append(token)
+            resource.new_tokens.append(token)
             return token
 
 
 @app.post("/apps")
 async def post_apps():
-    if len(mechanics.keys()) == 0 or len(vehicles.keys()) == 0:
+    if len(mechanics.entities.keys()) == 0 or len(vehicles.entities.keys()) == 0:
         return {
             "token": "-1",
             "message": "token generation failed! At least 1 mechanic and 1 vehicle are required",
@@ -41,7 +38,7 @@ async def post_apps():
         }
     else:
         return {
-            "token": get_token(new_tokens_apps),
+            "token": get_token(apps),
             "message": "token created",
             "collection": "apps"
         }
@@ -50,7 +47,7 @@ async def post_apps():
 @app.post("/vehicles")
 async def post_vehicles():
     return {
-        "token":  get_token(new_tokens_vehicles),
+        "token":  get_token(vehicles),
         "message": "token created",
         "collection": "vehicles"
     }
@@ -59,7 +56,7 @@ async def post_vehicles():
 @app.post("/mechanics")
 async def post_mechanics():
     return {
-        "token":  get_token(new_tokens_mechanics),
+        "token":  get_token(mechanics),
         "message": "token created",
         "collection": "mechanics"
     }
@@ -67,7 +64,7 @@ async def post_mechanics():
 
 @app.post("/transfers")
 async def post_transfer(transfer: Transfer):
-    for appointment in appointments.values():
+    for appointment in apps.entities.values():
         if appointment.date == transfer.date_from:
             appointment.date = transfer.date_to
 
@@ -79,15 +76,15 @@ async def post_transfer(transfer: Transfer):
 
 # *************** PUTS ***************
 
-def update_collection(entity_id, collection, entity, new_tokens):
-    if entity_id in new_tokens:
-        new_tokens.remove(entity_id)
-        collection[entity_id] = entity
+def update_collection(entity_id: str, entity, resource: Resource) -> str:
+    if entity_id in resource.new_tokens:
+        resource.new_tokens.remove(entity_id)
+        resource.entities[entity_id] = entity
 
         return f"created entity {entity_id}"
 
-    elif entity_id in collection:
-        collection[entity_id] = entity
+    elif entity_id in resource.entities:
+        resource.entities[entity_id] = entity
 
         return f"updated entity {entity_id}"
 
@@ -98,7 +95,7 @@ def update_collection(entity_id, collection, entity, new_tokens):
 async def put_appointment(app_id: str, appointment: Appointment):
     if appointment.vehicle_id in vehicles and appointment.mechanic_id in mechanics:
         return {
-            "message": update_collection(app_id, appointments, appointment, new_tokens_apps),
+            "message": update_collection(app_id, appointment, apps),
             "collection": "appointments"
         }
     else:
@@ -111,7 +108,7 @@ async def put_appointment(app_id: str, appointment: Appointment):
 @app.put("/vehicles/{vehicle_id}")
 async def put_vehicle(vehicle_id: str, vehicle: Vehicle):
     return {
-        "message": update_collection(vehicle_id, vehicles, vehicle, new_tokens_vehicles),
+        "message": update_collection(vehicle_id, vehicle, vehicles),
         "collection": "vehicles"
     }
 
@@ -119,16 +116,16 @@ async def put_vehicle(vehicle_id: str, vehicle: Vehicle):
 @app.put("/mechanics/{mechanic_id}")
 async def put_mechanic(mechanic_id: str, mechanic: Mechanic):
     return {
-        "message": update_collection(mechanic_id, mechanics, mechanic, new_tokens_mechanics),
+        "message": update_collection(mechanic_id, mechanic, mechanics),
         "collection": "mechanics"
     }
 
 
 # *************** DELETES ***************
 
-def delete_from_collection(entity_id, collection):
-    if entity_id in collection:
-        del collection[entity_id]
+def delete_from_collection(entity_id: str, resource: Resource) -> str:
+    if entity_id in resource.entities:
+        del resource.entities[entity_id]
 
         return f"deleted entity {entity_id}"
 
@@ -137,12 +134,12 @@ def delete_from_collection(entity_id, collection):
 
 @app.delete("/apps")
 async def delete_future_appointments():
-    appointments_copy = appointments.copy()
+    appointments_copy = apps.entities.copy()
     for (key, appointment) in appointments_copy.items():
         is_in_the_future = datetime.strptime(appointment.date, "%d/%m/%Y") >= datetime.today()
 
         if is_in_the_future:
-            appointments.pop(key)
+            apps.entities.pop(key)
 
     return {
         "message": "future appointments deleted",
@@ -153,7 +150,7 @@ async def delete_future_appointments():
 @app.delete("/apps/{app_id}")
 async def delete_appointment(app_id: str):
     return {
-        "message": delete_from_collection(app_id, appointments),
+        "message": delete_from_collection(app_id, apps),
         "collection": "appointments"
     }
 
@@ -161,7 +158,7 @@ async def delete_appointment(app_id: str):
 @app.delete("/vehicles/{vehicle_id}")
 async def delete_vehicle(vehicle_id: str):
     keys_to_pop = []
-    for (key, appointment) in appointments.items():
+    for (key, appointment) in apps.entities.items():
         if appointment.vehicle_id == vehicle_id:
             appointment.vehicle_id = "!!!!!"
 
@@ -170,7 +167,7 @@ async def delete_vehicle(vehicle_id: str):
                 keys_to_pop.append(key)
 
     for key in keys_to_pop:
-        appointments.pop(key)
+        apps.entities.pop(key)
 
     return {
         "message": delete_from_collection(vehicle_id, vehicles),
@@ -180,7 +177,7 @@ async def delete_vehicle(vehicle_id: str):
 
 @app.delete("/mechanics/{mechanic_id}")
 async def delete_mechanic(mechanic_id: str):
-    for appointment in appointments.values():
+    for appointment in apps.entities.values():
         if appointment.mechanic_id == mechanic_id:
             appointment.mechanic_id = "!!!!!"
 
@@ -192,18 +189,18 @@ async def delete_mechanic(mechanic_id: str):
 
 # *************** GETS ***************
 
-def is_in_collection(entity_id, collection):
-    if entity_id in collection:
+def is_in_collection(entity_id: str, resource: Resource) -> str:
+    if entity_id in resource.entities:
 
         return f"got entity {entity_id}"
 
     return f"get failed! Token not found {entity_id}"
 
 
-def get_from_collection(entity_id, collection):
-    if entity_id in collection:
+def get_from_collection(entity_id: str, resource: Resource):
+    if entity_id in resource.entities:
 
-        return collection[entity_id]
+        return resource.entities[entity_id]
 
     return []
 
@@ -212,7 +209,7 @@ def get_from_collection(entity_id, collection):
 async def get_appointments():
     return {
         "message": "getting collection successful",
-        "entity": appointments,
+        "entity": apps.entities,
         "collection": "appointments"
     }
 
@@ -220,8 +217,8 @@ async def get_appointments():
 @app.get("/apps/{app_id}")
 async def get_appointment(app_id: str):
     return {
-        "message": is_in_collection(app_id, appointments),
-        "entity": get_from_collection(app_id, appointments),
+        "message": is_in_collection(app_id, apps),
+        "entity": get_from_collection(app_id, apps),
         "collection": "appointments"
     }
 
@@ -230,7 +227,7 @@ async def get_appointment(app_id: str):
 async def get_vehicles():
     return {
         "message": "getting collection successful",
-        "entity": vehicles,
+        "entity": vehicles.entities,
         "collection": "vehicles"
     }
 
@@ -248,7 +245,7 @@ async def get_vehicle(vehicle_id: str):
 async def get_mechanics():
     return {
         "message": "getting collection successful",
-        "entity": mechanics,
+        "entity": mechanics.entities,
         "collection": "mechanics"
     }
 
