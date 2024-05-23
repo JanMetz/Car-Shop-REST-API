@@ -1,0 +1,14 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+#IDE files
+/Car_Shop_REST_API.iml
+/misc.xml
+/modules.xml
+/profile_settings.xml
+/vcs.xml
