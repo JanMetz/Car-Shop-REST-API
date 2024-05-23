@@ -16,7 +16,7 @@ Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8000/vehicles/5d640
+GET http://127.0.0.1:8000/vehicles/6f91c
 Accept: application/json
 
 ###
@@ -26,7 +26,7 @@ Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8000/mechanics/e854f
+GET http://127.0.0.1:8000/mechanics/34f52
 Accept: application/json
 
 ###

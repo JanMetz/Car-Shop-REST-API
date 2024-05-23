@@ -4,19 +4,38 @@
 DELETE http://127.0.0.1:8000/apps
 Accept: application/json
 
-###
+{
+"hash": "1111"
+}
 
-DELETE http://127.0.0.1:8000/vehicles/0e794
-Accept: application/json
-
-###
-
-DELETE http://127.0.0.1:8000/apps/70f5b
-Accept: application/json
 
 ###
 
-DELETE http://127.0.0.1:8000/mechanics/eb577
+DELETE http://127.0.0.1:8000/vehicles/6f91c
 Accept: application/json
+
+{
+"hash": "1111"
+}
+
+###
+
+DELETE http://127.0.0.1:8000/apps/4c607
+Accept: application/json
+
+{
+"hash": "1111"
+}
+
+
+###
+
+DELETE http://127.0.0.1:8000/mechanics/34f52
+Accept: application/json
+
+{
+"hash": "685b87f66c212734f235bcec49ad2b25"
+}
+
 
 ###

@@ -1,7 +1,5 @@
 from datetime import datetime
 import uuid
-import hashlib
-from typing import Any
 
 from resources import *
 from fastapi import FastAPI
@@ -14,7 +12,12 @@ mechanics = Resource()
 apps = Resource()
 
 
-# *************** POSTS ***************
+''' 
+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+               POSTS             
+********************************* 
+'''
+
 
 def get_token(resource: Resource) -> str:
     if len(resource.new_tokens) > 0:
@@ -82,22 +85,29 @@ async def post_transfer(transfer: Transfer):
     }
 
 
-# *************** PUTS ***************
+''' 
+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+               PUTS             
+********************************* 
+'''
+
 
 async def update_collection(entity_id: str, entity, resource: Resource) -> str:
     if entity_id in resource.new_tokens:
         resource.new_tokens.remove(entity_id)
+        entity.hash = entity.get_hash()
         resource.entities[entity_id] = entity
 
         return f"created entity {entity_id}"
 
     async with resource.mutex:
-        if entity_id in resource.entities:
+        if entity_id in resource.entities and resource.entities[entity_id].hash == entity.hash:
+            entity.hash = entity.get_hash()
             resource.entities[entity_id] = entity
 
             return f"updated entity {entity_id}"
 
-    return f"create/update failed! Token {entity_id} not found"
+    return f"create/update failed! Token {entity_id} with corresponding hash {entity.hash} not found"
 
 
 @app.put("/apps/{app_id}")
@@ -130,16 +140,21 @@ async def put_mechanic(mechanic_id: str, mechanic: Mechanic):
     }
 
 
-# *************** DELETES ***************
+''' 
+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+               DELETES             
+********************************* 
+'''
 
-async def delete_from_collection(entity_id: str, resource: Resource) -> str:
+
+async def delete_from_collection(entity_id: str, delete_request: DeleteRequest, resource: Resource) -> str:
     async with resource.mutex:
-        if entity_id in resource.entities:
+        if entity_id in resource.entities and resource.entities[entity_id].hash == delete_request.hash:
             del resource.entities[entity_id]
 
             return f"deleted entity {entity_id}"
 
-    return f"delete failed! Token not found {entity_id}"
+    return f"delete failed! Token {entity_id} with corresponding hash {delete_request.hash} not found "
 
 
 @app.delete("/apps")
@@ -160,48 +175,60 @@ async def delete_future_appointments():
 
 
 @app.delete("/apps/{app_id}")
-async def delete_appointment(app_id: str):
+async def delete_appointment(app_id: str, delete_request: DeleteRequest):
     return {
-        "message": await delete_from_collection(app_id, apps),
+        "message": await delete_from_collection(app_id, delete_request, apps),
         "collection": "appointments"
     }
 
 
+async def remove_vehicle_records(vehicle_id: str, delete_request: DeleteRequest):
+    if vehicle_id in vehicles.entities.keys() and vehicles.entities[vehicle_id].hash == delete_request.hash:
+        keys_to_pop = []
+        async with apps.mutex:
+            for (key, appointment) in apps.entities.items():
+                if appointment.vehicle_id == vehicle_id:
+                    appointment.vehicle_id = "!!!!!"
+
+                    is_in_the_future = datetime.strptime(appointment.date, "%d/%m/%Y") >= datetime.today()
+                    if is_in_the_future:
+                        keys_to_pop.append(key)
+
+            for key in keys_to_pop:
+                apps.entities.pop(key)
+
+
 @app.delete("/vehicles/{vehicle_id}")
-async def delete_vehicle(vehicle_id: str):
-    keys_to_pop = []
-    async with apps.mutex:
-        for (key, appointment) in apps.entities.items():
-            if appointment.vehicle_id == vehicle_id:
-                appointment.vehicle_id = "!!!!!"
-
-                is_in_the_future = datetime.strptime(appointment.date, "%d/%m/%Y") >= datetime.today()
-                if is_in_the_future:
-                    keys_to_pop.append(key)
-
-        for key in keys_to_pop:
-            apps.entities.pop(key)
-
+async def delete_vehicle(vehicle_id: str, delete_request: DeleteRequest):
+    await remove_vehicle_records(vehicle_id, delete_request)
     return {
-        "message": await delete_from_collection(vehicle_id, vehicles),
+        "message": await delete_from_collection(vehicle_id, delete_request, vehicles),
         "collection": "vehicles"
     }
 
 
-@app.delete("/mechanics/{mechanic_id}")
-async def delete_mechanic(mechanic_id: str):
-    async with apps.mutex:
-        for appointment in apps.entities.values():
-            if appointment.mechanic_id == mechanic_id:
-                appointment.mechanic_id = "!!!!!"
+async def remove_mechanic_records(mechanic_id: str, delete_request: DeleteRequest):
+    if mechanic_id in mechanics.entities.keys() and mechanics.entities[mechanic_id].hash == delete_request.hash:
+        async with apps.mutex:
+            for appointment in apps.entities.values():
+                if appointment.mechanic_id == mechanic_id:
+                    appointment.mechanic_id = "!!!!!"
 
+
+@app.delete("/mechanics/{mechanic_id}")
+async def delete_mechanic(mechanic_id: str, delete_request: DeleteRequest):
+    await remove_mechanic_records(mechanic_id, delete_request)
     return {
-        "message": await delete_from_collection(mechanic_id, mechanics),
+        "message": await delete_from_collection(mechanic_id, delete_request, mechanics),
         "collection": "mechanics"
     }
 
 
-# *************** GETS ***************
+''' 
+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+               GETS             
+********************************* 
+'''
 
 def is_in_collection(entity_id: str, resource: Resource) -> str:
     if entity_id in resource.entities:
@@ -217,18 +244,10 @@ def get_from_collection(entity_id: str, resource: Resource):
     return []
 
 
-def get_hash(entity) -> str:
-    serialized = repr(entity).encode('utf-8')
-
-    return hashlib.md5(serialized).hexdigest()
-
-
 def get_entity_dict(entity_id: str, resource: Resource) -> dict[str, Any]:
     entity = get_from_collection(entity_id, resource)
-    hash_val = get_hash(entity)
     dct = {
         "entity_id": entity_id,
-        "hash": hash_val
     }
 
     dct.update(entity.to_dict())
@@ -239,10 +258,8 @@ def get_entity_dict(entity_id: str, resource: Resource) -> dict[str, Any]:
 def get_entities_dict(resource: Resource) -> dict[str, Any]:
     dct = dict([])
     for entity_id, entity in resource.entities.items():
-        hash_val = get_hash(entity)
         entity_dct = {
             "entity_id": entity_id,
-            "hash": hash_val
         }
 
         entity_dct.update(entity.to_dict())
@@ -304,6 +321,12 @@ async def get_mechanic(mechanic_id: str):
         "collection": "mechanics"
     }
 
+
+''' 
+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+               MAIN             
+********************************* 
+'''
 
 if __name__ == "__main__":
     import uvicorn

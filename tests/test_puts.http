@@ -7,23 +7,25 @@ Accept: application/json
 {
 "make": "ford",
 "model": "fiesta",
-"registration": "AB6427"
+"registration": "AB6427",
+"hash": "1111"
 }
 
 ###
 
-PUT http://127.0.0.1:8000/vehicles/5d640
+PUT http://127.0.0.1:8000/vehicles/6f91c
 Accept: application/json
 
 {
 "make": "chevrolet",
 "model": "corvette",
-"registration": "DEN823"
+"registration": "DEN823",
+"hash": "1111"
 }
 
 ###
 
-PUT http://127.0.0.1:8000/apps/c6735
+PUT http://127.0.0.1:8000/apps/f6a5b
 Accept: application/json
 
 {
@@ -34,22 +36,24 @@ Accept: application/json
 
 ###
 
-PUT http://127.0.0.1:8000/mechanics/eb577
+PUT http://127.0.0.1:8000/mechanics/34f52
 Accept: application/json
 
 {
 "name": "adam",
-"surname": "sandler"
+"surname": "sandler",
+"hash": ""
 }
 
 ###
 
-PUT http://127.0.0.1:8000/mechanics/ce255
+PUT http://127.0.0.1:8000/mechanics/34f52
 Accept: application/json
 
 {
 "name": "joe",
-"surname": "kowalsky"
+"surname": "kowalsky",
+"hash": "05b13d52abac8e1bfe94a97bd6d4cb00"
 }
 
 ###
