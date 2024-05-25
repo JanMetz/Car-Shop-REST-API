@@ -1,5 +1,6 @@
 from datetime import datetime
 import uuid
+from typing import Any
 
 from resources import *
 from fastapi import FastAPI
@@ -92,7 +93,15 @@ async def post_transfer(transfer: Transfer):
 '''
 
 
-async def update_collection(entity_id: str, entity, resource: Resource) -> str:
+def unpack_args(args: str):
+    args = args.split(";")
+    if len(args) != 2:
+        return args[0], None
+
+    return args[0], args[1]
+
+
+async def update_collection(entity_id: str, hash_val: str, entity, resource: Resource) -> str:
     if entity_id in resource.new_tokens:
         resource.new_tokens.remove(entity_id)
         entity.hash = entity.get_hash()
@@ -100,21 +109,23 @@ async def update_collection(entity_id: str, entity, resource: Resource) -> str:
 
         return f"created entity {entity_id}"
 
-    async with resource.mutex:
-        if entity_id in resource.entities and resource.entities[entity_id].hash == entity.hash:
-            entity.hash = entity.get_hash()
-            resource.entities[entity_id] = entity
+    if hash_val is not None:
+        async with resource.mutex:
+            if entity_id in resource.entities and resource.entities[entity_id].hash == hash_val:
+                entity.hash = entity.get_hash()
+                resource.entities[entity_id] = entity
 
-            return f"updated entity {entity_id}"
+                return f"updated entity {entity_id}"
 
-    return f"create/update failed! Token {entity_id} with corresponding hash {entity.hash} not found"
+    return f"create/update failed! Token {entity_id} with corresponding hash {hash_val} not found"
 
 
-@app.put("/apps/{app_id}")
-async def put_appointment(app_id: str, appointment: Appointment):
+@app.put("/apps/{id_and_hash}")
+async def put_appointment(id_and_hash: str, appointment: Appointment):
+    app_id, hash_val = unpack_args(id_and_hash)
     if appointment.vehicle_id in vehicles and appointment.mechanic_id in mechanics:
         return {
-            "message": await update_collection(app_id, appointment, apps),
+            "message": await update_collection(app_id, hash_val, appointment, apps),
             "collection": "appointments"
         }
     else:
@@ -124,18 +135,20 @@ async def put_appointment(app_id: str, appointment: Appointment):
         }
 
 
-@app.put("/vehicles/{vehicle_id}")
-async def put_vehicle(vehicle_id: str, vehicle: Vehicle):
+@app.put("/vehicles/{id_and_hash}")
+async def put_vehicle(id_and_hash: str, vehicle: Vehicle):
+    vehicle_id, hash_val = unpack_args(id_and_hash)
     return {
-        "message": await update_collection(vehicle_id, vehicle, vehicles),
+        "message": await update_collection(vehicle_id, hash_val, vehicle, vehicles),
         "collection": "vehicles"
     }
 
 
-@app.put("/mechanics/{mechanic_id}")
-async def put_mechanic(mechanic_id: str, mechanic: Mechanic):
+@app.put("/mechanics/{id_and_hash}")
+async def put_mechanic(id_and_hash: str, mechanic: Mechanic):
+    mechanic_id, hash_val = unpack_args(id_and_hash)
     return {
-        "message": await update_collection(mechanic_id, mechanic, mechanics),
+        "message": await update_collection(mechanic_id, hash_val, mechanic, mechanics),
         "collection": "mechanics"
     }
 
@@ -147,14 +160,14 @@ async def put_mechanic(mechanic_id: str, mechanic: Mechanic):
 '''
 
 
-async def delete_from_collection(entity_id: str, delete_request: DeleteRequest, resource: Resource) -> str:
+async def delete_from_collection(entity_id: str, hash_val: str, resource: Resource) -> str:
     async with resource.mutex:
-        if entity_id in resource.entities and resource.entities[entity_id].hash == delete_request.hash:
+        if entity_id in resource.entities and resource.entities[entity_id].hash == hash_val:
             del resource.entities[entity_id]
 
             return f"deleted entity {entity_id}"
 
-    return f"delete failed! Token {entity_id} with corresponding hash {delete_request.hash} not found "
+    return f"delete failed! Token {entity_id} with corresponding hash {hash_val} not found "
 
 
 @app.delete("/apps")
@@ -174,16 +187,24 @@ async def delete_future_appointments():
     }
 
 
-@app.delete("/apps/{app_id}")
-async def delete_appointment(app_id: str, delete_request: DeleteRequest):
+@app.delete("/apps/{id_and_hash}")
+async def delete_appointment(id_and_hash: str):
+    args = id_and_hash.split(";")
+    if len(args) != 2:
+        return {
+            "message": "error! Wrong number of arguments! Expected 2 in format: appointment_id;hash",
+            "collection": "appointments"
+        }
+
+    app_id, hash_val = args[0], args[1]
     return {
-        "message": await delete_from_collection(app_id, delete_request, apps),
+        "message": await delete_from_collection(app_id, hash_val, apps),
         "collection": "appointments"
     }
 
 
-async def remove_vehicle_records(vehicle_id: str, delete_request: DeleteRequest):
-    if vehicle_id in vehicles.entities.keys() and vehicles.entities[vehicle_id].hash == delete_request.hash:
+async def remove_vehicle_records(vehicle_id: str, hash_val: str):
+    if vehicle_id in vehicles.entities.keys() and vehicles.entities[vehicle_id].hash == hash_val:
         keys_to_pop = []
         async with apps.mutex:
             for (key, appointment) in apps.entities.items():
@@ -198,28 +219,44 @@ async def remove_vehicle_records(vehicle_id: str, delete_request: DeleteRequest)
                 apps.entities.pop(key)
 
 
-@app.delete("/vehicles/{vehicle_id}")
-async def delete_vehicle(vehicle_id: str, delete_request: DeleteRequest):
-    await remove_vehicle_records(vehicle_id, delete_request)
+@app.delete("/vehicles/{id_and_hash}")
+async def delete_vehicle(id_and_hash: str):
+    args = id_and_hash.split(";")
+    if len(args) != 2:
+        return {
+            "message": "error! Wrong number of arguments! Expected 2 in format: vehicle_id;hash",
+            "collection": "vehicles"
+        }
+
+    vehicle_id, hash_val = args[0], args[1]
+    await remove_vehicle_records(vehicle_id, hash_val)
     return {
-        "message": await delete_from_collection(vehicle_id, delete_request, vehicles),
+        "message": await delete_from_collection(vehicle_id, hash_val, vehicles),
         "collection": "vehicles"
     }
 
 
-async def remove_mechanic_records(mechanic_id: str, delete_request: DeleteRequest):
-    if mechanic_id in mechanics.entities.keys() and mechanics.entities[mechanic_id].hash == delete_request.hash:
+async def remove_mechanic_records(mechanic_id: str, hash_val: str):
+    if mechanic_id in mechanics.entities.keys() and mechanics.entities[mechanic_id].hash == hash_val:
         async with apps.mutex:
             for appointment in apps.entities.values():
                 if appointment.mechanic_id == mechanic_id:
                     appointment.mechanic_id = "!!!!!"
 
 
-@app.delete("/mechanics/{mechanic_id}")
-async def delete_mechanic(mechanic_id: str, delete_request: DeleteRequest):
-    await remove_mechanic_records(mechanic_id, delete_request)
+@app.delete("/mechanics/{id_and_hash}")
+async def delete_mechanic(id_and_hash: str):
+    args = id_and_hash.split(";")
+    if len(args) != 2:
+        return {
+            "message": "error! Wrong number of arguments! Expected 2 in format: mechanic_id;hash",
+            "collection": "mechanics"
+        }
+
+    mechanic_id, hash_val = args[0], args[1]
+    await remove_mechanic_records(mechanic_id, hash_val)
     return {
-        "message": await delete_from_collection(mechanic_id, delete_request, mechanics),
+        "message": await delete_from_collection(mechanic_id, hash_val, mechanics),
         "collection": "mechanics"
     }
 
@@ -229,6 +266,7 @@ async def delete_mechanic(mechanic_id: str, delete_request: DeleteRequest):
                GETS             
 ********************************* 
 '''
+
 
 def is_in_collection(entity_id: str, resource: Resource) -> str:
     if entity_id in resource.entities:

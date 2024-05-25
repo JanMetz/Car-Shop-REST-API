@@ -1,31 +1,29 @@
 # Test your FastAPI endpoints
 ###
 
-PUT http://127.0.0.1:8000/vehicles/0e794
+PUT http://127.0.0.1:8000/vehicles/3ab02;0d168f4335f3c84882baef8889f324b7
 Accept: application/json
 
 {
 "make": "ford",
 "model": "fiesta",
-"registration": "AB6427",
-"hash": "1111"
+"registration": "AB6427"
 }
 
 ###
 
-PUT http://127.0.0.1:8000/vehicles/6f91c
+PUT http://127.0.0.1:8000/vehicles/3ab02
 Accept: application/json
 
 {
 "make": "chevrolet",
 "model": "corvette",
-"registration": "DEN823",
-"hash": "1111"
+"registration": "DEN823"
 }
 
 ###
 
-PUT http://127.0.0.1:8000/apps/f6a5b
+PUT http://127.0.0.1:8000/apps/96b27
 Accept: application/json
 
 {
@@ -36,24 +34,22 @@ Accept: application/json
 
 ###
 
-PUT http://127.0.0.1:8000/mechanics/34f52
+PUT http://127.0.0.1:8000/mechanics/58aa0;685b87f66c212734f235bcec49ad2b25
 Accept: application/json
 
 {
 "name": "adam",
-"surname": "sandler",
-"hash": ""
+"surname": "sandler"
 }
 
 ###
 
-PUT http://127.0.0.1:8000/mechanics/34f52
+PUT http://127.0.0.1:8000/mechanics/58aa0;05b13d52abac8e1bfe94a97bd6d4cb00
 Accept: application/json
 
 {
 "name": "joe",
-"surname": "kowalsky",
-"hash": "05b13d52abac8e1bfe94a97bd6d4cb00"
+"surname": "kowalsky"
 }
 
 ###
