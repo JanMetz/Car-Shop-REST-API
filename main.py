@@ -347,6 +347,7 @@ async def get_appointments(start: int = Query(default=0), stop: int = Query(defa
 
 @app.get("/apps/{app_id}")
 async def get_appointment(app_id: str):
+    app_id = app_id.split(',')[0]
     return {
         "message": is_in_collection(app_id, apps),
         "entity": get_entity_dict(app_id, apps),
@@ -365,6 +366,7 @@ async def get_vehicles(start: int = Query(default=0), stop: int = Query(default=
 
 @app.get("/vehicles/{vehicle_id}")
 async def get_vehicle(vehicle_id: str):
+    vehicle_id = vehicle_id.split(',')[0]
     return {
         "message": is_in_collection(vehicle_id, vehicles),
         "entity": get_entity_dict(vehicle_id, vehicles),
@@ -383,6 +385,7 @@ async def get_mechanics(start: int = Query(default=0), stop: int = Query(default
 
 @app.get("/mechanics/{mechanic_id}")
 async def get_mechanic(mechanic_id: str):
+    mechanic_id = mechanic_id.split(',')[0]
     return {
         "message": is_in_collection(mechanic_id, mechanics),
         "entity": get_entity_dict(mechanic_id, mechanics),
