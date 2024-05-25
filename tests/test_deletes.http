@@ -6,7 +6,7 @@ Accept: application/json
 
 ###
 
-DELETE http://127.0.0.1:8000/vehicles/3ab02;cd5efd5d3a235472811c3d55191fea38
+DELETE http://127.0.0.1:8000/vehicles/3ab02,cd5efd5d3a235472811c3d55191fea38
 Accept: application/json
 
 ###
@@ -16,12 +16,12 @@ Accept: application/json
 
 ###
 
-DELETE http://127.0.0.1:8000/mechanics/34f52;05b13d52abac8e1bfe94a97bd6d4cb00
+DELETE http://127.0.0.1:8000/mechanics/34f52,05b13d52abac8e1bfe94a97bd6d4cb00
 Accept: application/json
 
 ###
 
-DELETE http://127.0.0.1:8000/mechanics/79134;685b87f66c212734f235bcec49ad2b25
+DELETE http://127.0.0.1:8000/mechanics/8adb3,685b87f66c212734f235bcec49ad2b25
 Accept: application/json
 
 ###

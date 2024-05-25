@@ -1,7 +1,7 @@
 # Test your FastAPI endpoints
 ###
 
-PUT http://127.0.0.1:8000/vehicles/3ab02;0d168f4335f3c84882baef8889f324b7
+PUT http://127.0.0.1:8000/vehicles/42fe3,0d168f4335f3c84882baef8889f324b7
 Accept: application/json
 
 {
@@ -12,7 +12,7 @@ Accept: application/json
 
 ###
 
-PUT http://127.0.0.1:8000/vehicles/3ab02
+PUT http://127.0.0.1:8000/vehicles/,,,
 Accept: application/json
 
 {
@@ -34,7 +34,7 @@ Accept: application/json
 
 ###
 
-PUT http://127.0.0.1:8000/mechanics/58aa0;685b87f66c212734f235bcec49ad2b25
+PUT http://127.0.0.1:8000/mechanics/a432b,685b87f66c212734f235bcec49ad2b25
 Accept: application/json
 
 {
@@ -44,7 +44,7 @@ Accept: application/json
 
 ###
 
-PUT http://127.0.0.1:8000/mechanics/58aa0;05b13d52abac8e1bfe94a97bd6d4cb00
+PUT http://127.0.0.1:8000/mechanics/6e6ad,05b13d52abac8e1bfe94a97bd6d4cb00
 Accept: application/json
 
 {

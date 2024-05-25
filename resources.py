@@ -53,13 +53,14 @@ class Transfer(BaseModel):
     date_to: str
 
 
-
 class Resource:
     new_tokens = None
     entities = None
+    tokens = None
     mutex = None
 
     def __init__(self):
         self.mutex = Lock()
         self.new_tokens = []
-        self.entities = dict([])
+        self.entities = []
+        self.tokens = []

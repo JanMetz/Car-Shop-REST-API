@@ -3,7 +3,7 @@ import uuid
 from typing import Any
 
 from resources import *
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 
 
 app = FastAPI()
@@ -26,9 +26,9 @@ def get_token(resource: Resource) -> str:
 
     while True:
         token = str(uuid.uuid4().hex[:5])
-        not_in_keys = (token not in vehicles.entities.keys() and
-                       token not in mechanics.entities.keys() and
-                       token not in apps.entities.keys())
+        not_in_keys = (token not in vehicles.tokens and
+                       token not in mechanics.tokens and
+                       token not in apps.tokens)
 
         not_in_tokens = (token not in vehicles.new_tokens and
                          token not in mechanics.new_tokens and
@@ -41,7 +41,7 @@ def get_token(resource: Resource) -> str:
 
 @app.post("/apps")
 async def post_apps():
-    if len(mechanics.entities.keys()) == 0 or len(vehicles.entities.keys()) == 0:
+    if len(mechanics.tokens) == 0 or len(vehicles.tokens) == 0:
         return {
             "token": "-1",
             "message": "token generation failed! At least 1 mechanic and 1 vehicle are required",
@@ -76,7 +76,7 @@ async def post_mechanics():
 @app.post("/transfers")
 async def post_transfer(transfer: Transfer):
     async with apps.mutex:
-        for appointment in apps.entities.values():
+        for appointment in apps.entities:
             if appointment.date == transfer.date_from:
                 appointment.date = transfer.date_to
 
@@ -94,7 +94,7 @@ async def post_transfer(transfer: Transfer):
 
 
 def unpack_args(args: str):
-    args = args.split(";")
+    args = args.split(",")
     if len(args) != 2:
         return args[0], None
 
@@ -105,17 +105,22 @@ async def update_collection(entity_id: str, hash_val: str, entity, resource: Res
     if entity_id in resource.new_tokens:
         resource.new_tokens.remove(entity_id)
         entity.hash = entity.get_hash()
-        resource.entities[entity_id] = entity
+        resource.entities.append(entity)
+        resource.tokens.append(entity_id)
 
         return f"created entity {entity_id}"
 
     if hash_val is not None:
         async with resource.mutex:
-            if entity_id in resource.entities and resource.entities[entity_id].hash == hash_val:
-                entity.hash = entity.get_hash()
-                resource.entities[entity_id] = entity
+            try:
+                idx = resource.tokens.index(entity_id)
+                if resource.entities[idx].hash == hash_val:
+                    entity.hash = entity.get_hash()
+                    resource.entities[idx] = entity
 
-                return f"updated entity {entity_id}"
+                    return f"updated entity {entity_id}"
+            except ValueError:
+                pass
 
     return f"create/update failed! Token {entity_id} with corresponding hash {hash_val} not found"
 
@@ -162,24 +167,35 @@ async def put_mechanic(id_and_hash: str, mechanic: Mechanic):
 
 async def delete_from_collection(entity_id: str, hash_val: str, resource: Resource) -> str:
     async with resource.mutex:
-        if entity_id in resource.entities and resource.entities[entity_id].hash == hash_val:
-            del resource.entities[entity_id]
+        try:
+            idx = resource.tokens.index(entity_id)
+            if resource.entities[idx].hash == hash_val:
+                del resource.entities[idx]
+                del resource.tokens[idx]
+                return f"deleted entity {entity_id}"
 
-            return f"deleted entity {entity_id}"
+        except ValueError:
+            pass
 
     return f"delete failed! Token {entity_id} with corresponding hash {hash_val} not found "
 
 
 @app.delete("/apps")
 async def delete_future_appointments():
-    appointments_copy = apps.entities.copy()
-    for (key, appointment) in appointments_copy.items():
+    apps_entities_copy = apps.entities.copy()
+    apps_tokens_copy = apps.tokens.copy()
+
+    for (key, appointment) in zip(apps_tokens_copy, apps_entities_copy):
         is_in_the_future = datetime.strptime(appointment.date, "%d/%m/%Y") >= datetime.today()
 
         if is_in_the_future:
             async with apps.mutex:
-                if key in apps.entities.keys():
-                    apps.entities.pop(key)
+                try:
+                    idx = apps.tokens.index(key)
+                    del apps.entities[idx]
+                    del apps.tokens[idx]
+                except ValueError:
+                    pass
 
     return {
         "message": "future appointments deleted",
@@ -189,10 +205,10 @@ async def delete_future_appointments():
 
 @app.delete("/apps/{id_and_hash}")
 async def delete_appointment(id_and_hash: str):
-    args = id_and_hash.split(";")
+    args = id_and_hash.split(",")
     if len(args) != 2:
         return {
-            "message": "error! Wrong number of arguments! Expected 2 in format: appointment_id;hash",
+            "message": "error! Wrong number of arguments! Expected 2 in format: appointment_id,hash",
             "collection": "appointments"
         }
 
@@ -204,27 +220,32 @@ async def delete_appointment(id_and_hash: str):
 
 
 async def remove_vehicle_records(vehicle_id: str, hash_val: str):
-    if vehicle_id in vehicles.entities.keys() and vehicles.entities[vehicle_id].hash == hash_val:
-        keys_to_pop = []
-        async with apps.mutex:
-            for (key, appointment) in apps.entities.items():
-                if appointment.vehicle_id == vehicle_id:
-                    appointment.vehicle_id = "!!!!!"
+    try:
+        idx = vehicles.tokens.index(vehicle_id)
+        if vehicles.entities[idx].hash == hash_val:
+            idxs_to_pop = []
+            async with apps.mutex:
+                for (idx, appointment) in enumerate(apps.entities):
+                    if appointment.vehicle_id == vehicle_id:
+                        appointment.vehicle_id = "!!!!!"
 
-                    is_in_the_future = datetime.strptime(appointment.date, "%d/%m/%Y") >= datetime.today()
-                    if is_in_the_future:
-                        keys_to_pop.append(key)
+                        is_in_the_future = datetime.strptime(appointment.date, "%d/%m/%Y") >= datetime.today()
+                        if is_in_the_future:
+                            idxs_to_pop.append(idx)
 
-            for key in keys_to_pop:
-                apps.entities.pop(key)
+                for idx in idxs_to_pop:
+                    del apps.entities[idx]
+                    del apps.tokens[idx]
+    except ValueError:
+        pass
 
 
 @app.delete("/vehicles/{id_and_hash}")
 async def delete_vehicle(id_and_hash: str):
-    args = id_and_hash.split(";")
+    args = id_and_hash.split(",")
     if len(args) != 2:
         return {
-            "message": "error! Wrong number of arguments! Expected 2 in format: vehicle_id;hash",
+            "message": "error! Wrong number of arguments! Expected 2 in format: vehicle_id,hash",
             "collection": "vehicles"
         }
 
@@ -237,19 +258,23 @@ async def delete_vehicle(id_and_hash: str):
 
 
 async def remove_mechanic_records(mechanic_id: str, hash_val: str):
-    if mechanic_id in mechanics.entities.keys() and mechanics.entities[mechanic_id].hash == hash_val:
-        async with apps.mutex:
-            for appointment in apps.entities.values():
-                if appointment.mechanic_id == mechanic_id:
-                    appointment.mechanic_id = "!!!!!"
+    try:
+        idx = mechanics.tokens.index(mechanic_id)
+        if mechanics.entities[idx].hash == hash_val:
+            async with apps.mutex:
+                for appointment in apps.entities:
+                    if appointment.mechanic_id == mechanic_id:
+                        appointment.mechanic_id = "!!!!!"
+    except ValueError:
+        pass
 
 
 @app.delete("/mechanics/{id_and_hash}")
 async def delete_mechanic(id_and_hash: str):
-    args = id_and_hash.split(";")
+    args = id_and_hash.split(",")
     if len(args) != 2:
         return {
-            "message": "error! Wrong number of arguments! Expected 2 in format: mechanic_id;hash",
+            "message": "error! Wrong number of arguments! Expected 2 in format: mechanic_id,hash",
             "collection": "mechanics"
         }
 
@@ -269,48 +294,53 @@ async def delete_mechanic(id_and_hash: str):
 
 
 def is_in_collection(entity_id: str, resource: Resource) -> str:
-    if entity_id in resource.entities:
+    if entity_id in resource.tokens:
         return f"get request successful"
 
     return f"get request failed! Token not found {entity_id}"
 
 
 def get_from_collection(entity_id: str, resource: Resource):
-    if entity_id in resource.entities:
-        return resource.entities[entity_id]
-
-    return []
+    try:
+        idx = resource.tokens.index(entity_id)
+        return resource.entities[idx]
+    except ValueError:
+        return None
 
 
 def get_entity_dict(entity_id: str, resource: Resource) -> dict[str, Any]:
     entity = get_from_collection(entity_id, resource)
-    dct = {
-        "entity_id": entity_id,
-    }
+    dct = dict([])
+    if entity is not None:
+        dct = {
+            "entity_id": entity_id,
+        }
 
-    dct.update(entity.to_dict())
+        dct.update(entity.to_dict())
 
     return dct
 
 
-def get_entities_dict(resource: Resource) -> dict[str, Any]:
-    dct = dict([])
-    for entity_id, entity in resource.entities.items():
-        entity_dct = {
-            "entity_id": entity_id,
-        }
+def get_entities_dict(resource: Resource, start: int, stop: int) -> list[Any]:
+    dct = []
 
-        entity_dct.update(entity.to_dict())
-        dct[entity_id] = entity_dct
+    if 0 <= start <= stop:
+        for entity_id, entity in zip(resource.tokens[start:stop], resource.entities[start:stop]):
+            entity_dct = {
+                "entity_id": entity_id,
+            }
+
+            entity_dct.update(entity.to_dict())
+            dct.append(entity_dct)
 
     return dct
 
 
 @app.get("/apps")
-async def get_appointments():
+async def get_appointments(start: int = Query(default=0), stop: int = Query(default=5)):
     return {
         "message": "getting collection successful",
-        "entities": get_entities_dict(apps),
+        "entities": get_entities_dict(apps, start, stop),
         "collection": "appointments"
     }
 
@@ -325,10 +355,10 @@ async def get_appointment(app_id: str):
 
 
 @app.get("/vehicles")
-async def get_vehicles():
+async def get_vehicles(start: int = Query(default=0), stop: int = Query(default=5)):
     return {
         "message": "getting collection successful",
-        "entities": get_entities_dict(vehicles),
+        "entities": get_entities_dict(vehicles, start, stop),
         "collection": "vehicles"
     }
 
@@ -343,10 +373,10 @@ async def get_vehicle(vehicle_id: str):
 
 
 @app.get("/mechanics")
-async def get_mechanics():
+async def get_mechanics(start: int = Query(default=0), stop: int = Query(default=5)):
     return {
         "message": "getting collection successful",
-        "entities": get_entities_dict(mechanics),
+        "entities": get_entities_dict(mechanics, start, stop),
         "collection": "mechanics"
     }
 
