@@ -3,7 +3,7 @@ import uuid
 from typing import Any
 
 from resources import *
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 
 
 app = FastAPI()
@@ -42,11 +42,7 @@ def get_token(resource: Resource) -> str:
 @app.post("/apps")
 async def post_apps():
     if len(mechanics.tokens) == 0 or len(vehicles.tokens) == 0:
-        return {
-            "token": "-1",
-            "message": "token generation failed! At least 1 mechanic and 1 vehicle are required",
-            "collection": "apps"
-        }
+        raise HTTPException(status_code=400, detail="At least 1 mechanic and 1 vehicle are required before generating token for appointment")
     else:
         return {
             "token": get_token(apps),
@@ -122,7 +118,7 @@ async def update_collection(entity_id: str, hash_val: str, entity, resource: Res
             except ValueError:
                 pass
 
-    return f"create/update failed! Token {entity_id} with corresponding hash {hash_val} not found"
+    raise HTTPException(status_code=404, detail=f"Token {entity_id} with corresponding hash {hash_val} not found")
 
 
 @app.put("/apps/{id_and_hash}")
@@ -134,10 +130,7 @@ async def put_appointment(id_and_hash: str, appointment: Appointment):
             "collection": "appointments"
         }
     else:
-        return {
-            "message": "create/update failed! Invalid vehicle or mechanic token!",
-            "collection": "appointments"
-        }
+        raise HTTPException(status_code=404, detail="Invalid vehicle or mechanic token!")
 
 
 @app.put("/vehicles/{id_and_hash}")
@@ -177,7 +170,7 @@ async def delete_from_collection(entity_id: str, hash_val: str, resource: Resour
         except ValueError:
             pass
 
-    return f"delete failed! Token {entity_id} with corresponding hash {hash_val} not found "
+    raise HTTPException(status_code=404, detail=f"Token {entity_id} with corresponding hash {hash_val} not found")
 
 
 @app.delete("/apps")
@@ -207,10 +200,7 @@ async def delete_future_appointments():
 async def delete_appointment(id_and_hash: str):
     args = id_and_hash.split(",")
     if len(args) != 2:
-        return {
-            "message": "error! Wrong number of arguments! Expected 2 in format: appointment_id,hash",
-            "collection": "appointments"
-        }
+        raise HTTPException(status_code=400, detail="Wrong number of arguments! Expected 2 in format: id,hash")
 
     app_id, hash_val = args[0], args[1]
     return {
@@ -244,10 +234,7 @@ async def remove_vehicle_records(vehicle_id: str, hash_val: str):
 async def delete_vehicle(id_and_hash: str):
     args = id_and_hash.split(",")
     if len(args) != 2:
-        return {
-            "message": "error! Wrong number of arguments! Expected 2 in format: vehicle_id,hash",
-            "collection": "vehicles"
-        }
+        raise HTTPException(status_code=400, detail="Wrong number of arguments! Expected 2 in format: id,hash")
 
     vehicle_id, hash_val = args[0], args[1]
     await remove_vehicle_records(vehicle_id, hash_val)
@@ -273,10 +260,7 @@ async def remove_mechanic_records(mechanic_id: str, hash_val: str):
 async def delete_mechanic(id_and_hash: str):
     args = id_and_hash.split(",")
     if len(args) != 2:
-        return {
-            "message": "error! Wrong number of arguments! Expected 2 in format: mechanic_id,hash",
-            "collection": "mechanics"
-        }
+        raise HTTPException(status_code=400, detail="Wrong number of arguments! Expected 2 in format: id,hash")
 
     mechanic_id, hash_val = args[0], args[1]
     await remove_mechanic_records(mechanic_id, hash_val)
@@ -297,7 +281,7 @@ def is_in_collection(entity_id: str, resource: Resource) -> str:
     if entity_id in resource.tokens:
         return f"get request successful"
 
-    return f"get request failed! Token not found {entity_id}"
+    raise HTTPException(status_code=404, detail=f"Token {entity_id} not found")
 
 
 def get_from_collection(entity_id: str, resource: Resource):
