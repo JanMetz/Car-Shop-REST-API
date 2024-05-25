@@ -49,7 +49,8 @@ Transfer:
 
 # Querying:
 To limit number of records returned by GET you can add parameters 'start' and 'stop' to your request.
-For example request GET on /vehicles?start=0&stop=10 will return first 9 vehicles.
+
+For example GET request on /vehicles?start=0&stop=10 will return first 9 vehicles.
 
 
 # Dependencies
